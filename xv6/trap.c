@@ -9,6 +9,10 @@
 #include "spinlock.h"
 #include "i8254.h"
 
+//vm.c의 함수 추가
+pte_t *walkpgdir(pde_t *pgdir, const void *va, int alloc);
+int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
@@ -81,7 +85,21 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
+  //추가
+  case T_PGFLT:
+		uint va = PGROUNDDOWN(rcr2()); 
+		char* mem=kalloc();
+		if(mem==0){
+			cprintf("allocuvm out of memory\n");
+			break;
+		}	
+		memset(mem,0,PGSIZE);
+		mappages(myproc()->pgdir,(char*)va,PGSIZE,V2P(mem),PTE_W|PTE_U|PTE_P);
 
+		lcr3(V2P(myproc()->pgdir));
+
+		break;
+    
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){

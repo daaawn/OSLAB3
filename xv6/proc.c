@@ -538,3 +538,33 @@ procdump(void)
     cprintf("\n");
   }
 }
+
+int printpt(int pid) {
+    struct proc *p;
+    pde_t *pgdir;
+    pte_t *pte;
+    uint a;
+
+    // 프로세스 찾기
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        if(p->pid == pid)
+            break;
+    }
+    if(p == 0 || p->pid != pid)
+        return -1;
+
+    pgdir = p->pgdir;
+    cprintf("START PAGE TABLE (pid %d)\n", pid);
+    //a가 0부터 커널베이스까지 페이지 단위로 증가
+    for(a = 0; a < KERNBASE; a += PGSIZE) {
+        pte = walkpgdir(pgdir, (void *)a, 0); //walkpgdir pgdir을 사용해 해당 pte를 찾아낸다.
+        if(pte && (*pte & PTE_P)) {
+            cprintf("%x P %c %c %x\n", a >> 12, //가상 주소 페이지 번호 
+                (*pte & PTE_U) ? 'U' : 'K', //user모드인지 kernel인지
+                (*pte & PTE_W) ? 'W' : '-', //읽기 or 쓰기
+                PTE_ADDR(*pte)>>12); //프레임
+        }
+    }
+    cprintf("END PAGE TABLE\n");
+    return 0;
+}
